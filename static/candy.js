@@ -4,10 +4,11 @@ var board = [];
 var rows = 9;
 var columns = 9;
 var score = 0;
+var moveCounter = 0;
 
 var currTile;
 var otherTile;
-
+var firstMoveMade = false;
 
 window.onload = function() {
     startGame();
@@ -100,8 +101,14 @@ function dragEnd() {
         currTile.src = otherImg;
         otherTile.src = currImg;
 
+        if (!firstMoveMade) {
+            firstMoveMade = true; // Set to true after the first move
+        }
+
         let validMove = checkValid();
-        if (!validMove) {
+        if (validMove) {
+            moveCounter++;
+        } else {
             let currImg = currTile.src;
             let otherImg = otherTile.src;
             currTile.src = otherImg;
@@ -111,11 +118,31 @@ function dragEnd() {
 }
 
 function crushCandy() {
-    //crushFive();
-    //crushFour();
+    crushFive();
+    crushFour();
     crushThree();
-    document.getElementById("score").innerText = score;
+    document.getElementById("moves").innerText = moveCounter;
+    if (firstMoveMade) {
+        document.getElementById("score").innerText = score;
+    }
+}
 
+function regenerateGrid() {
+    // Add 3 to the moves as punishment
+    moveCounter += 3;
+
+    // Clear the existing board
+    board = [];
+    document.getElementById("board").innerHTML = "";
+
+    // Reset game state variables
+    firstMoveMade = false;
+
+    // Generate a new grid of candies
+    startGame();
+
+    // Initial crush check after regenerating the board
+    crushCandy();
 }
 
 function crushThree() {
@@ -145,6 +172,86 @@ function crushThree() {
                 candy2.src = "static/images/blank.png";
                 candy3.src = "static/images/blank.png";
                 score += 30;
+            }
+        }
+    }
+}
+
+function crushFour() {
+    // Check rows for groups of four
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < columns - 3; c++) {
+            let candy1 = board[r][c];
+            let candy2 = board[r][c + 1];
+            let candy3 = board[r][c + 2];
+            let candy4 = board[r][c + 3];
+            
+            if (candy1.src == candy2.src && candy2.src == candy3.src && candy3.src == candy4.src && !candy1.src.includes("blank")) {
+                candy1.src = "static/images/blank.png";
+                candy2.src = "static/images/blank.png";
+                candy3.src = "static/images/blank.png";
+                candy4.src = "static/images/blank.png";
+                score += 40; // Increase the score for crushing four candies
+            }
+        }
+    }
+
+    // Check columns for groups of four
+    for (let c = 0; c < columns; c++) {
+        for (let r = 0; r < rows - 3; r++) {
+            let candy1 = board[r][c];
+            let candy2 = board[r + 1][c];
+            let candy3 = board[r + 2][c];
+            let candy4 = board[r + 3][c];
+            
+            if (candy1.src == candy2.src && candy2.src == candy3.src && candy3.src == candy4.src && !candy1.src.includes("blank")) {
+                candy1.src = "static/images/blank.png";
+                candy2.src = "static/images/blank.png";
+                candy3.src = "static/images/blank.png";
+                candy4.src = "static/images/blank.png";
+                score += 40; // Increase the score for crushing four candies
+            }
+        }
+    }
+}
+
+function crushFive() {
+    // Check rows for groups of five
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < columns - 4; c++) {
+            let candy1 = board[r][c];
+            let candy2 = board[r][c + 1];
+            let candy3 = board[r][c + 2];
+            let candy4 = board[r][c + 3];
+            let candy5 = board[r][c + 4];
+            
+            if (candy1.src == candy2.src && candy2.src == candy3.src && candy3.src == candy4.src && candy4.src == candy5.src && !candy1.src.includes("blank")) {
+                candy1.src = "static/images/blank.png";
+                candy2.src = "static/images/blank.png";
+                candy3.src = "static/images/blank.png";
+                candy4.src = "static/images/blank.png";
+                candy5.src = "static/images/blank.png";
+                score += 50; // Increase the score for crushing five candies
+            }
+        }
+    }
+
+    // Check columns for groups of five
+    for (let c = 0; c < columns; c++) {
+        for (let r = 0; r < rows - 4; r++) {
+            let candy1 = board[r][c];
+            let candy2 = board[r + 1][c];
+            let candy3 = board[r + 2][c];
+            let candy4 = board[r + 3][c];
+            let candy5 = board[r + 4][c];
+            
+            if (candy1.src == candy2.src && candy2.src == candy3.src && candy3.src == candy4.src && candy4.src == candy5.src && !candy1.src.includes("blank")) {
+                candy1.src = "static/images/blank.png";
+                candy2.src = "static/images/blank.png";
+                candy3.src = "static/images/blank.png";
+                candy4.src = "static/images/blank.png";
+                candy5.src = "static/images/blank.png";
+                score += 50; // Increase the score for crushing five candies
             }
         }
     }
