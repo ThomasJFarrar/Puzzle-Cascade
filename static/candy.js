@@ -6,6 +6,11 @@ var columns = 9;
 var score = 0;
 var moveCounter = 0;
 
+var maxMoves = 20;
+var shufflePenatly = 3;
+var maxCandies = 6;
+var targetScore = 300;
+
 var currTile;
 var otherTile;
 var firstMoveMade = false;
@@ -22,10 +27,19 @@ window.onload = function() {
 }
 
 function randomCandy() {
-    return candies[Math.floor(Math.random() * candies.length)]; //0 - 5.99
+    return candies[Math.floor(Math.random() * maxCandies)]; //0 - 5.99
 }
 
 function startGame() {
+    document.getElementById("target").innerText = targetScore;
+    document.getElementById("playAgainBtn").style.display = "none";
+    document.getElementById("shuffle").textContent = "Shuffle (" + shufflePenatly + " moves)";
+    moveCounter = 0
+    score = 0
+    generateGrid()
+}
+
+function generateGrid() {
     for (let r = 0; r < rows; r++) {
         let row = [];
         for (let c = 0; c < columns; c++) {
@@ -101,12 +115,9 @@ function dragEnd() {
         currTile.src = otherImg;
         otherTile.src = currImg;
 
-        if (!firstMoveMade) {
-            firstMoveMade = true; // Set to true after the first move
-        }
-
         let validMove = checkValid();
         if (validMove) {
+            firstMoveMade = true; // Set to true after the first move
             moveCounter++;
         } else {
             let currImg = currTile.src;
@@ -121,28 +132,53 @@ function crushCandy() {
     crushFive();
     crushFour();
     crushThree();
-    document.getElementById("moves").innerText = moveCounter;
-    if (firstMoveMade) {
-        document.getElementById("score").innerText = score;
+    document.getElementById("moves").innerText = maxMoves - moveCounter;
+    document.getElementById("score").innerText = score;
+}
+
+function clearBoard() {
+    // Clear the existing board
+    board = [];
+    document.getElementById("board").innerHTML = "";
+}
+
+function shuffle() {
+    // stop shuffling if not enough moves left
+    if (!(moveCounter + shufflePenatly > maxMoves)) {
+        regenerateGrid()
+    }
+    else {
+        // inform player that they can't shuffle
     }
 }
 
 function regenerateGrid() {
     // Add 3 to the moves as punishment
-    moveCounter += 3;
+    moveCounter += shufflePenatly;
 
-    // Clear the existing board
-    board = [];
-    document.getElementById("board").innerHTML = "";
+    clearBoard()
 
     // Reset game state variables
     firstMoveMade = false;
 
     // Generate a new grid of candies
-    startGame();
+    generateGrid();
 
     // Initial crush check after regenerating the board
     crushCandy();
+}
+
+function endGame() {
+    // Display a message or perform any necessary actions
+    clearBoard()
+    saveScore(score);
+    score = 0
+    firstMoveMade = false;
+    document.getElementById("playAgainBtn").style.display = "block";
+}
+
+function saveScore(score) {
+    // save the score and post to python
 }
 
 function crushThree() {
@@ -156,7 +192,9 @@ function crushThree() {
                 candy1.src = "static/images/blank.png";
                 candy2.src = "static/images/blank.png";
                 candy3.src = "static/images/blank.png";
-                score += 30;
+                if (firstMoveMade) {
+                    score += 30;
+                }
             }
         }
     }
@@ -171,7 +209,9 @@ function crushThree() {
                 candy1.src = "static/images/blank.png";
                 candy2.src = "static/images/blank.png";
                 candy3.src = "static/images/blank.png";
-                score += 30;
+                if (firstMoveMade) {
+                    score += 30;
+                }
             }
         }
     }
@@ -191,7 +231,9 @@ function crushFour() {
                 candy2.src = "static/images/blank.png";
                 candy3.src = "static/images/blank.png";
                 candy4.src = "static/images/blank.png";
-                score += 40; // Increase the score for crushing four candies
+                if (firstMoveMade) {
+                    score += 40;
+                }
             }
         }
     }
@@ -209,7 +251,9 @@ function crushFour() {
                 candy2.src = "static/images/blank.png";
                 candy3.src = "static/images/blank.png";
                 candy4.src = "static/images/blank.png";
-                score += 40; // Increase the score for crushing four candies
+                if (firstMoveMade) {
+                    score += 40;
+                }
             }
         }
     }
@@ -231,7 +275,9 @@ function crushFive() {
                 candy3.src = "static/images/blank.png";
                 candy4.src = "static/images/blank.png";
                 candy5.src = "static/images/blank.png";
-                score += 50; // Increase the score for crushing five candies
+                if (firstMoveMade) {
+                    score += 50;
+                }
             }
         }
     }
@@ -251,7 +297,9 @@ function crushFive() {
                 candy3.src = "static/images/blank.png";
                 candy4.src = "static/images/blank.png";
                 candy5.src = "static/images/blank.png";
-                score += 50; // Increase the score for crushing five candies
+                if (firstMoveMade) {
+                    score += 50;
+                }
             }
         }
     }
@@ -299,6 +347,12 @@ function slideCandy() {
         for (let r = ind; r >= 0; r--) {
             board[r][c].src = "static/images/blank.png";
         }
+    }
+    if (score >= targetScore) {
+        endGame()
+    }
+    if (moveCounter >= maxMoves) {
+        endGame();
     }
 }
 

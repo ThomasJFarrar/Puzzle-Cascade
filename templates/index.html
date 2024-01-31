@@ -10,9 +10,11 @@
     </head>
 
     <body>
+        <h1>Target Score: <span id="target">0</span></h1>
         <h1>Score: <span id="score">0</span></h1>
-        <h1>Moves: <span id="moves">0</span></h1>
-        <button onclick="regenerateGrid()">Shuffle</button>
+        <h1>Moves Remaining: <span id="moves">0</span></h1>
+        <button id="shuffle" onclick="shuffle()"></button>
+        <button id="playAgainBtn" style="display: none;" onclick="startGame()">Play Again</button>
         <div id="board"></div>
     </body>
 </html>
