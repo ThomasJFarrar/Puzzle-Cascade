@@ -10,11 +10,13 @@
     </head>
 
     <body>
+        <h1>Level: <span id="level">1</span></h1>
         <h1>Target Score: <span id="target">0</span></h1>
         <h1>Score: <span id="score">0</span></h1>
         <h1>Moves Remaining: <span id="moves">0</span></h1>
-        <button id="shuffle" onclick="shuffle()"></button>
-        <button id="playAgainBtn" style="display: none;" onclick="startGame()">Play Again</button>
         <div id="board"></div>
+        <button id="shuffle" onclick="shuffle()"></button>
+        <button id="nextLvlBtn" style="display: none;" onclick="nextLevel()">Next Level</button>
+        <button id="playAgainBtn" style="display: none;" onclick="playAgain()">Play Again</button>
     </body>
 </html>

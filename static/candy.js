@@ -6,14 +6,24 @@ var columns = 9;
 var score = 0;
 var moveCounter = 0;
 
-var maxMoves = 20;
-var shufflePenalty = 3;
+var levelNumber = 1;
+var maxMoves = 5;
+var shufflePenalty = 1;
 var maxCandies = 6;
-var targetScore = 1000;
+var targetScore = 30;
 
 var currTile;
 var otherTile;
 var firstMoveMade = false;
+
+// Player tracking
+var totalLevelTime;
+var start;
+
+var timeBetweenMoves = [];
+var startTimeMove;
+
+var scoreDifference;
 
 // When the window loads, start the game and set intervals for game actions.
 window.onload = function() {
@@ -32,13 +42,22 @@ function randomCandy() {
 
 // Initialize the game state.
 function startGame() {
-    // Set target score and hide play again button.
-    document.getElementById("target").innerText = targetScore;
-    document.getElementById("playAgainBtn").style.display = "none";
-    // Display shuffle button with shuffle penalty.
-    document.getElementById("shuffle").textContent = `Shuffle (${shufflePenalty} moves)`;
+    firstMoveMade = false;
     moveCounter = 0
     score = 0
+    timeBetweenMoves = [];
+    start = Date.now()
+    scoreDifference = 0;
+    totalLevelTime = 0;
+    // Set target score, hide play again button and update the level number.
+    document.getElementById("target").innerText = targetScore;
+    document.getElementById("playAgainBtn").style.display = "none";
+    document.getElementById("nextLvlBtn").style.display = "none";
+    document.getElementById("level").textContent = levelNumber;
+    // Display shuffle button with shuffle penalty.
+    document.getElementById("shuffle").style.display = "block";
+    document.getElementById("shuffle").textContent = `Shuffle (${shufflePenalty} moves)`;
+    clearBoard()
     generateGrid()
 }
 
@@ -57,6 +76,7 @@ function generateGrid() {
             let tile = document.createElement("img");
             tile.id = `${r}-${c}`;
             tile.src = `static/images/${randomCandy()}.png`;
+            startTimeMove = Date.now()
             // Add event listeners for drag and drop functionality.
             tile.addEventListener("dragstart", dragStart); // Click on a candy, initialize drag process.
             tile.addEventListener("dragover", dragOver);  // Clicking on candy, moving mouse to drag the candy.
@@ -76,6 +96,7 @@ function generateGrid() {
 function dragStart() {
     // Tile that was clicked on for dragging.
     currTile = this;
+
 }
 
 // Event handler for drag over.
@@ -124,9 +145,12 @@ function dragEnd() {
         otherTile.src = currImg;
         const validMove = checkValid(); // Check if the move creates a valid combination.
         // Increment move counter if move is valid.
-        if (validMove) {
+        if (validMove && moveCounter < maxMoves) {
             firstMoveMade = true;
             moveCounter++;
+            let delta = Date.now() - startTimeMove;
+            timeBetweenMoves.push(Math.floor(delta / 1000));
+            startTimeMove = Date.now()
         } else {
             // If move is not valid, revert the swap.
             let currImg = currTile.src;
@@ -149,13 +173,7 @@ function crushCandy() {
 
 // Handle shuffling the candies on the board.
 function shuffle() {
-    // Check if there are enough moves left to shuffle.
-    if (!(moveCounter + shufflePenalty > maxMoves)) {
-        regenerateGrid()
-    }
-    else {
-        // Inform player that they can't shuffle.
-    }
+    regenerateGrid()
 }
 
 // Regenerate the grid after shuffling the candies.
@@ -168,20 +186,57 @@ function regenerateGrid() {
     crushCandy();
 }
 
-// Handle the end of the game.
-function endGame() {
-    // Display a message or perform any necessary actions.
-    clearBoard()
-    saveScore(score);
-    score = 0
-    firstMoveMade = false;
-    // Display the play again button.
+function gameOver() {
+    // display game over screen
     document.getElementById("playAgainBtn").style.display = "block";
 }
 
-// Save the player's score for the level.
-function saveScore(score) {
-    // Save the score and post to python.
+function nextLevel() {
+    levelNumber++
+    setTimeout(startGame, 100);
+}
+
+function playAgain() {
+    levelNumber = 1
+    setTimeout(startGame, 100);
+}
+
+// Handle the end of the game.
+function endGame() {
+    // Calculate time spent in level.
+    let delta = Date.now() - start;
+    totalLevelTime = Math.floor(delta / 1000); // To Seconds.
+    // Calculate the score difference
+    scoreDifference = score - targetScore;
+    document.getElementById("shuffle").style.display = "none";
+    firstMoveMade = false;
+    if (scoreDifference >= 0) {
+        saveStats();
+        document.getElementById("nextLvlBtn").style.display = "block";
+    }
+    else {
+        gameOver()
+    }
+}
+
+// Save the player's stats for the level.
+function saveStats() {
+    let jsonData = {
+        "totaltime": totalLevelTime,
+        "movetime": timeBetweenMoves,
+        "scorediff": scoreDifference
+    };
+
+    fetch('/stats', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(jsonData)
+    })
+    .then(response => response.json())
+    .then(data => console.log(data))
+    .catch(error => console.error('Error:', error));
 }
 
 // Check for and eliminate candy combinations of three in a row or column.
@@ -315,7 +370,7 @@ function slideCandy() {
     }
 
     // End the game if the target score is reached or there are no more moves left.
-    if (score >= targetScore || moveCounter >= maxMoves) {
+    if (moveCounter >= maxMoves) {
         endGame();
     }
 }
