@@ -25,6 +25,8 @@ var startTimeMove;
 
 var scoreDifference;
 
+var statsSent = false;
+
 // When the window loads, start the game and set intervals for game actions.
 window.onload = function() {
     startGame();
@@ -35,6 +37,15 @@ window.onload = function() {
     }, 100);
 }
 
+// Add listener for if player unloads.
+window.addEventListener('beforeunload', function (e) {
+    // Send an AJAX request to notify the server
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/unload', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.send(JSON.stringify({}));
+});
+
 // Generate a random candy from the candy list.
 function randomCandy() {
     return candyList[Math.floor(Math.random() * maxCandies)]; //0 - 5.99
@@ -42,6 +53,7 @@ function randomCandy() {
 
 // Initialize the game state.
 function startGame() {
+    statsSent = false;
     firstMoveMade = false;
     moveCounter = 0
     score = 0
@@ -173,13 +185,11 @@ function crushCandy() {
 
 // Handle shuffling the candies on the board.
 function shuffle() {
-    regenerateGrid()
-}
-
-// Regenerate the grid after shuffling the candies.
-function regenerateGrid() {
     // Add shuffle penalty to the move counter.
     moveCounter += shufflePenalty;
+    let delta = Date.now() - startTimeMove;
+    timeBetweenMoves.push(Math.floor(delta / 1000));
+    startTimeMove = Date.now()
     clearBoard()
     firstMoveMade = false;
     generateGrid();
@@ -221,22 +231,33 @@ function endGame() {
 
 // Save the player's stats for the level.
 function saveStats() {
-    let jsonData = {
-        "totaltime": totalLevelTime,
-        "movetime": timeBetweenMoves,
-        "scorediff": scoreDifference
-    };
+    if (!statsSent) {
 
-    fetch('/stats', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(jsonData)
-    })
-    .then(response => response.json())
-    .then(data => console.log(data))
-    .catch(error => console.error('Error:', error));
+        // Calculate average time between moves
+        let total = 0;
+        for(let i = 0; i < timeBetweenMoves.length; i++) {
+            total += timeBetweenMoves[i];
+        }
+        let avgTime = total / timeBetweenMoves.length;
+
+        let jsonData = {
+            "totaltime": totalLevelTime,
+            "avgmovetime": avgTime,
+            "scorediff": scoreDifference
+        };
+
+        fetch('/stats', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(jsonData)
+        })
+        .then(response => response.json())
+        .then(data => console.log(data))
+        .catch(error => console.error('Error:', error));
+        statsSent = true;
+    }
 }
 
 // Check for and eliminate candy combinations of three in a row or column.
