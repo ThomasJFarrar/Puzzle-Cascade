@@ -6,11 +6,13 @@ var columns = 9;
 var score = 0;
 var moveCounter = 0;
 
+var levelParams;
+
 var levelNumber = 1;
-var maxMoves = 5;
+var maxMoves;
 var shufflePenalty = 1;
 var maxCandies = 6;
-var targetScore = 30;
+var targetScore;
 
 var currTile;
 var otherTile;
@@ -19,6 +21,7 @@ var firstMoveMade = false;
 // Player tracking
 var totalLevelTime;
 var start;
+var timesShuffled;
 
 var timeBetweenMoves = [];
 var startTimeMove;
@@ -29,12 +32,30 @@ var statsSent = false;
 
 // When the window loads, start the game and set intervals for game actions.
 window.onload = function() {
-    startGame();
+    // Send an AJAX request to notify the server
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/load', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.send(JSON.stringify({}));
+    startLevel();
     setInterval(function(){
         crushCandy();
         slideCandy();
         generateCandy();
     }, 100);
+}
+
+function fetchLevelParameters() {
+    fetch('/get_level_params', {
+        method: 'GET',
+    })
+    .then(response => response.json())
+    .then(data => {
+        maxMoves = data[0];
+        targetScore = data[1];
+        document.getElementById("target").innerText = targetScore;
+        console.log(data)})
+    .catch(error => console.error('Error:', error));
 }
 
 // Add listener for if player unloads.
@@ -52,17 +73,18 @@ function randomCandy() {
 }
 
 // Initialize the game state.
-function startGame() {
+function startLevel(levelParams) {
+    fetchLevelParameters()
     statsSent = false;
     firstMoveMade = false;
+    timesShuffled = 0;
     moveCounter = 0
     score = 0
     timeBetweenMoves = [];
     start = Date.now()
     scoreDifference = 0;
     totalLevelTime = 0;
-    // Set target score, hide play again button and update the level number.
-    document.getElementById("target").innerText = targetScore;
+    // Hide play again button and update the level number.
     document.getElementById("playAgainBtn").style.display = "none";
     document.getElementById("nextLvlBtn").style.display = "none";
     document.getElementById("level").textContent = levelNumber;
@@ -187,6 +209,7 @@ function crushCandy() {
 function shuffle() {
     // Add shuffle penalty to the move counter.
     moveCounter += shufflePenalty;
+    timesShuffled++;
     let delta = Date.now() - startTimeMove;
     timeBetweenMoves.push(Math.floor(delta / 1000));
     startTimeMove = Date.now()
@@ -203,16 +226,16 @@ function gameOver() {
 
 function nextLevel() {
     levelNumber++
-    setTimeout(startGame, 100);
+    setTimeout(startLevel, 100);
 }
 
 function playAgain() {
     levelNumber = 1
-    setTimeout(startGame, 100);
+    setTimeout(startLevel, 100);
 }
 
 // Handle the end of the game.
-function endGame() {
+function endLevel() {
     // Calculate time spent in level.
     let delta = Date.now() - start;
     totalLevelTime = Math.floor(delta / 1000); // To Seconds.
@@ -225,6 +248,7 @@ function endGame() {
         document.getElementById("nextLvlBtn").style.display = "block";
     }
     else {
+        saveStats();
         gameOver()
     }
 }
@@ -243,7 +267,8 @@ function saveStats() {
         let jsonData = {
             "totaltime": totalLevelTime,
             "avgmovetime": avgTime,
-            "scorediff": scoreDifference
+            "scorediff": scoreDifference,
+            "shuffles": timesShuffled
         };
 
         fetch('/stats', {
@@ -392,7 +417,7 @@ function slideCandy() {
 
     // End the game if the target score is reached or there are no more moves left.
     if (moveCounter >= maxMoves) {
-        endGame();
+        endLevel();
     }
 }
 
