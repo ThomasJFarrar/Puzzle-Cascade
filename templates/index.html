@@ -10,13 +10,22 @@
     </head>
 
     <body>
-        <h1>Level: <span id="level">1</span></h1>
-        <h1>Target Score: <span id="target">0</span></h1>
-        <h1>Score: <span id="score">0</span></h1>
-        <h1>Moves Remaining: <span id="moves">0</span></h1>
-        <div id="board"></div>
-        <button id="shuffle" onclick="shuffle()"></button>
+        <div id="levelElements" style="display: none;">
+            <h1>Level: <span id="level">1</span></h1>
+            <h1>Target Score: <span id="target">0</span></h1>
+            <h1>Score: <span id="score">0</span></h1>
+            <h1>Moves Remaining: <span id="moves">0</span></h1>
+            <div id="board"></div>
+            <button id="shuffle" onclick="shuffle()"></button>
+        </div>
+        <div id="startScreen">
+            <button id="startBtn" onclick="startLevel()">Start</button>
+            <button id="lazyBot" onclick="runLazyBot()">Lazy Bot</button>
+        </div>
         <button id="nextLvlBtn" style="display: none;" onclick="nextLevel()">Next Level</button>
-        <button id="playAgainBtn" style="display: none;" onclick="playAgain()">Play Again</button>
+        <div id="gameOver" style="display: none;">
+            <h1>Game Over<h1>
+            <button id="playAgainBtn" onclick="playAgain()">Play Again</button>
+        </div>
     </body>
 </html>

@@ -5,6 +5,8 @@ var rows = 9;
 var columns = 9;
 var score = 0;
 var moveCounter = 0;
+var levelEnded = false;
+var botRunning = false;
 
 var levelParams;
 
@@ -32,17 +34,11 @@ var statsSent = false;
 
 // When the window loads, start the game and set intervals for game actions.
 window.onload = function() {
-    // Send an AJAX request to notify the server
+    // Send an AJAX request to notify the server.
     var xhr = new XMLHttpRequest();
     xhr.open('POST', '/load', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     xhr.send(JSON.stringify({}));
-    startLevel();
-    setInterval(function(){
-        crushCandy();
-        slideCandy();
-        generateCandy();
-    }, 100);
 }
 
 function fetchLevelParameters() {
@@ -60,7 +56,7 @@ function fetchLevelParameters() {
 
 // Add listener for if player unloads.
 window.addEventListener('beforeunload', function (e) {
-    // Send an AJAX request to notify the server
+    // Send an AJAX request to notify the server.
     var xhr = new XMLHttpRequest();
     xhr.open('POST', '/unload', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
@@ -69,30 +65,82 @@ window.addEventListener('beforeunload', function (e) {
 
 // Generate a random candy from the candy list.
 function randomCandy() {
-    return candyList[Math.floor(Math.random() * maxCandies)]; //0 - 5.99
+    return candyList[Math.floor(Math.random() * maxCandies)];
+}
+
+function runLazyBot() {
+    botRunning = true;
+    startLevel();
+    var lazyBot = setInterval(function() {
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < columns; c++) {
+                // Stop if the level has ended.
+                if (levelEnded) {
+                    clearInterval(lazyBot);
+                    return;
+                }
+                if (c > 0) { // Check left.
+                    currTile = board[r][c];
+                    otherTile = board[r][c - 1];
+                    if (dragEnd()) {
+                        return;
+                    }
+                }
+                if (c < columns - 1) { // Check right.
+                    currTile = board[r][c];
+                    otherTile = board[r][c + 1];
+                    if (dragEnd()) {
+                        return;
+                    }
+                }
+                if (r > 0) { // Check up.
+                    currTile = board[r][c];
+                    otherTile = board[r - 1][c];
+                    if (dragEnd()) {
+                        return;
+                    }
+                }
+                if (r < rows - 1) { // Check down.
+                    currTile = board[r][c];
+                    otherTile = board[r + 1][c];
+                    if (dragEnd()) {
+                        return;
+                    }
+                }
+            }
+        }
+    }, 500);
 }
 
 // Initialize the game state.
-function startLevel(levelParams) {
-    fetchLevelParameters()
+function startLevel() {
+    fetchLevelParameters();
+    levelEnded = false;
     statsSent = false;
     firstMoveMade = false;
     timesShuffled = 0;
-    moveCounter = 0
-    score = 0
+    moveCounter = 0;
+    score = 0;
     timeBetweenMoves = [];
-    start = Date.now()
+    start = Date.now();
     scoreDifference = 0;
     totalLevelTime = 0;
+    setInterval(function(){
+        crushCandy();
+        slideCandy();
+        generateCandy();
+    }, 100);
     // Hide play again button and update the level number.
-    document.getElementById("playAgainBtn").style.display = "none";
+    document.getElementById("levelElements").style.display = "block";
+    document.getElementById("startScreen").style.display = "none"
+    document.getElementById("gameOver").style.display = "none";
     document.getElementById("nextLvlBtn").style.display = "none";
     document.getElementById("level").textContent = levelNumber;
     // Display shuffle button with shuffle penalty.
     document.getElementById("shuffle").style.display = "block";
-    document.getElementById("shuffle").textContent = `Shuffle (${shufflePenalty} moves)`;
-    clearBoard()
-    generateGrid()
+    document.getElementById("shuffle").textContent = `Shuffle (${shufflePenalty} move)`;
+    clearBoard();
+    generateGrid();
 }
 
 // Clear the game board.
@@ -157,7 +205,7 @@ function dragDrop() {
 function dragEnd() {
     // Check if the dragged tiles are not blank and are adjacent.
     if (currTile.src.includes("blank") || otherTile.src.includes("blank")) {
-        return; // If either tile is blank, exit the function since the move is not valid.
+        return false;; // If either tile is blank, exit the function since the move is not valid.
     }
 
     // Extract row and column indices of the current and other tiles.
@@ -184,15 +232,18 @@ function dragEnd() {
             moveCounter++;
             let delta = Date.now() - startTimeMove;
             timeBetweenMoves.push(Math.floor(delta / 1000));
-            startTimeMove = Date.now()
+            startTimeMove = Date.now();
+            return true;
         } else {
             // If move is not valid, revert the swap.
             let currImg = currTile.src;
             let otherImg = otherTile.src;
             currTile.src = otherImg;
             otherTile.src = currImg;
+            return false;
         }
     }
+    return false;
 }
 
 // Check for and eliminate candy combinations of three or more in a row or column.
@@ -212,30 +263,34 @@ function shuffle() {
     timesShuffled++;
     let delta = Date.now() - startTimeMove;
     timeBetweenMoves.push(Math.floor(delta / 1000));
-    startTimeMove = Date.now()
-    clearBoard()
+    startTimeMove = Date.now();
+    clearBoard();
     firstMoveMade = false;
     generateGrid();
     crushCandy();
 }
 
 function gameOver() {
-    // display game over screen
-    document.getElementById("playAgainBtn").style.display = "block";
+    // Display game over screen.
+    document.getElementById("levelElements").style.display = "none";
+    document.getElementById("gameOver").style.display = "block";
 }
 
 function nextLevel() {
-    levelNumber++
-    setTimeout(startLevel, 100);
+    levelNumber++;
+    startLevel();
+    //setTimeout(startLevel(), 5000);
 }
 
 function playAgain() {
-    levelNumber = 1
-    setTimeout(startLevel, 100);
+    levelNumber = 1;
+    startLevel();
+    //setTimeout(startLevel(), 5000);
 }
 
 // Handle the end of the game.
 function endLevel() {
+    levelEnded = true;
     // Calculate time spent in level.
     let delta = Date.now() - start;
     totalLevelTime = Math.floor(delta / 1000); // To Seconds.
@@ -246,10 +301,13 @@ function endLevel() {
     if (scoreDifference >= 0) {
         saveStats();
         document.getElementById("nextLvlBtn").style.display = "block";
+        if (botRunning) {
+            nextLevel();
+        }
     }
     else {
         saveStats();
-        gameOver()
+        gameOver();
     }
 }
 
@@ -257,7 +315,7 @@ function endLevel() {
 function saveStats() {
     if (!statsSent) {
 
-        // Calculate average time between moves
+        // Calculate average time between moves.
         let total = 0;
         for(let i = 0; i < timeBetweenMoves.length; i++) {
             total += timeBetweenMoves[i];
@@ -329,7 +387,7 @@ function crushFour() {
         }
     }
 
-    // Check for combinations in columns
+    // Check for combinations in columns.
     for (let c = 0; c < columns; c++) {
         for (let r = 0; r < rows - 3; r++) {
             const [candy1, candy2, candy3, candy4] = [board[r][c], board[r+1][c], board[r+2][c], board[r+3][c]];
@@ -358,7 +416,7 @@ function crushFive() {
         }
     }
 
-    // Check for combinations in columns
+    // Check for combinations in columns.
     for (let c = 0; c < columns; c++) {
         for (let r = 0; r < rows - 4; r++) {
             const [candy1, candy2, candy3, candy4, candy5] = [board[r][c], board[r+1][c], board[r+2][c], board[r+3][c], board[r+4][c]];

@@ -1,33 +1,32 @@
 import json
 import threading
-from flask import Flask, render_template, request, session, jsonify
+from flask import Flask, render_template, request, jsonify
 from skopt import gp_minimize
 
 app = Flask(__name__, static_folder='static')
 app.secret_key = 'key'
 
+MINPOSSIBLEMOVES = 10
+MAXPOSSIBLEMOVES = 15
+MINTARGETSCORE = 100
+MAXTARGETSCORE = 300
+
 data = {}
 
-def calculate_satisfaction(client_id):
-    level_stats = data[client_id]['level_stats']
+def calculate_satisfaction(data):
 
-    leveltotaltime = level_stats['totaltime']
-    levelmovetime = level_stats['avgmovetime']
-    levelscorediff = level_stats['scorediff']
-    levelshuffles = level_stats['shuffles']
+    averages = average_stats(data['stats'])
+    normalised_stats = normalise_stats(averages, data['stats'], data['level_stats'])
+    avg_deviation = calculate_deviation(normalised_stats[0], normalised_stats[1])
+    satisfaction = 1 - avg_deviation
 
-    client_data = data[client_id]
-    stats_list = client_data['stats']
+    return satisfaction
 
+def average_stats(stats_list):
     totaltotaltime = 0
     totalmovetime = 0
     totalscorediff = 0
     totalshufflesdiff = 0
-
-    totaltimes = []
-    movetimes = []
-    scorediffs = []
-    totalshuffles = []
 
     for stat in stats_list:
         totaltotaltime += stat['totaltime']
@@ -35,18 +34,36 @@ def calculate_satisfaction(client_id):
         totalscorediff += stat['scorediff']
         totalshufflesdiff += stat['shuffles']
 
-        totaltimes.append(stat['totaltime'])
-        movetimes.append(stat['avgmovetime'])
-        scorediffs.append(stat['scorediff'])
-        totalshuffles.append(stat['shuffles'])
-
     # Calculate the averages of existing player stats
     avgtotaltime = totaltotaltime / len(stats_list)
     avgmovetime = totalmovetime / len(stats_list)
     avgscorediff = totalscorediff / len(stats_list)
     avgshuffles = totalshufflesdiff / len(stats_list)
 
-    # Min max normalisation of avgs
+    return avgtotaltime, avgmovetime, avgscorediff, avgshuffles
+
+def normalise_stats(averages, stats_list, level_stats):
+    totaltimes = []
+    movetimes = []
+    scorediffs = []
+    totalshuffles = []
+
+    leveltotaltime = level_stats['totaltime']
+    levelmovetime = level_stats['avgmovetime']
+    levelscorediff = level_stats['scorediff']
+    levelshuffles = level_stats['shuffles']
+
+    avgtotaltime = averages[0]
+    avgmovetime = averages[1]
+    avgscorediff = averages[2]
+    avgshuffles = averages[3]
+
+    for stat in stats_list:
+        totaltimes.append(stat['totaltime'])
+        movetimes.append(stat['avgmovetime'])
+        scorediffs.append(stat['scorediff'])
+        totalshuffles.append(stat['shuffles'])
+
     totaltimemin = min(totaltimes)
     movetimemin = min(movetimes)
     levelscoremin = min(scorediffs)
@@ -57,59 +74,72 @@ def calculate_satisfaction(client_id):
     levelscoremax = max(scorediffs)
     shufflesmax = max(totalshuffles)
 
-    # Check to avoid dividing by 0
-    if totaltimemax == totaltimemin:
-        totaltimedeviation = 0
-    elif movetimemax == movetimemin:
-        movetimedeviation = 0
-    elif levelscoremax == levelscoremin:
-        scorediffdeviation = 0
-    elif shufflesmax == shufflesmin:
-        shuffledeviation = 0
+    # Check if values are the same to avoid division by zero
+    if totaltimemin == totaltimemax:
+        totaltimeavgnormalised = 0
+        leveltotaltimenormalised = 0
     else:
-        # Normalise
         totaltimeavgnormalised = (avgtotaltime - totaltimemin) / (totaltimemax - totaltimemin)
-        movetimeavgnormalised = (avgmovetime - movetimemin) / (movetimemax - movetimemin)
-        scorediffavgnormalised = (avgscorediff - levelscoremin) / (levelscoremax - levelscoremin)
-        shufflediffavgnormalised = (avgshuffles - shufflesmin) / (shufflesmax - shufflesmin)
         leveltotaltimenormalised = (leveltotaltime - totaltimemin) / (totaltimemax - totaltimemin)
+    if movetimemin == movetimemax:
+        movetimeavgnormalised = 0
+        levelmovetimenormalised = 0
+    else:
+        movetimeavgnormalised = (avgmovetime - movetimemin) / (movetimemax - movetimemin)
         levelmovetimenormalised = (levelmovetime - movetimemin) / (movetimemax - movetimemin)
+    if levelscoremin == levelscoremax:
+        scorediffavgnormalised = 0
+        levelscorediffnormalised = 0
+    else:
+        scorediffavgnormalised = (avgscorediff - levelscoremin) / (levelscoremax - levelscoremin)
         levelscorediffnormalised = (levelscorediff - levelscoremin) / (levelscoremax - levelscoremin)
+    if shufflesmin == shufflesmax:
+        shufflediffavgnormalised = 0
+        levelshufflediffnormalised = 0
+    else:
+        shufflediffavgnormalised = (avgshuffles - shufflesmin) / (shufflesmax - shufflesmin)
         levelshufflediffnormalised = (levelshuffles - shufflesmin) / (shufflesmax - shufflesmin)
-        
 
-        totaltimedeviation = abs(totaltimeavgnormalised - leveltotaltimenormalised)
-        movetimedeviation = abs(movetimeavgnormalised - levelmovetimenormalised)
-        scorediffdeviation = abs(scorediffavgnormalised - levelscorediffnormalised)
-        shuffledeviation = abs(shufflediffavgnormalised - levelshufflediffnormalised)
+    return (totaltimeavgnormalised,
+            movetimeavgnormalised,
+            scorediffavgnormalised,
+            shufflediffavgnormalised), \
+           (leveltotaltimenormalised,
+            levelmovetimenormalised,
+            levelscorediffnormalised,
+            levelshufflediffnormalised)
 
-    avgdeviation = (totaltimedeviation + movetimedeviation + scorediffdeviation + shuffledeviation) / 4
+def calculate_deviation(stats_normalised, level_stats_normalised):
 
-    satisfaction = client_data['satisfaction']
-    # Satisfaction calculation
-    satisfaction = 1 - avgdeviation
+    totaltimedeviation = abs(stats_normalised[0] - level_stats_normalised[0])
+    movetimedeviation = abs(stats_normalised[1] - level_stats_normalised[1])
+    scorediffdeviation = abs(stats_normalised[2] - level_stats_normalised[2])
+    shuffledeviation = abs(stats_normalised[3] - level_stats_normalised[3])
 
-    return satisfaction
+    avgdeviation = (totaltimedeviation + movetimedeviation + \
+                    scorediffdeviation + shuffledeviation) / 4
 
-def play(client_id):
-    param_bounds = [(10, 20), (300, 900)]
+    return avgdeviation
+
+def play():
+    param_bounds = [(MINPOSSIBLEMOVES, MAXPOSSIBLEMOVES),
+                    (MINTARGETSCORE, MAXTARGETSCORE)]
 
     def objective_function(level_params):
         app.logger.info(str([int(i) for i in level_params]))
-        # Make it so this sets the level paramers and starts the level
-        data[client_id]['level_params'] = level_params
-        data[client_id]['params_event'].set()
-        data[client_id]['stats_event'].wait()
-        data[client_id]['stats_event'].clear()
-        if len(data[client_id]['stats']) <= 1:
+        data['level_params'] = level_params
+        data['params_event'].set()
+        data['stats_event'].wait()
+        data['stats_event'].clear()
+        if len(data['stats']) <= 1:
             satisfaction = 1.0
         else:
-            satisfaction = calculate_satisfaction(client_id)
+            satisfaction = calculate_satisfaction(data)
         app.logger.info(str(1-satisfaction))
         return 1 - satisfaction
 
     def optimise():
-        data[client_id]['level_stats'] = None
+        data['level_stats'] = None
 
         result = gp_minimize(objective_function,
                              param_bounds,
@@ -122,46 +152,41 @@ def play(client_id):
 @app.route('/stats', methods=['POST'])
 def receieve_stats():
     level_stats = request.json
-    client_id = session.get('client_id')
     # Update the stats
-    data[client_id]['stats'].append(level_stats)
-    data[client_id]['level_stats'] = level_stats
-    data[client_id]['stats_event'].set()
-    if len(data[client_id]['stats']) <= 1:
+    data['stats'].append(level_stats)
+    data['level_stats'] = level_stats
+    data['stats_event'].set()
+    if len(data['stats']) <= 1:
         satisfaction = 1.0
     else:
-        satisfaction = calculate_satisfaction(client_id)
+        satisfaction = calculate_satisfaction(data)
     return jsonify(satisfaction)
 
 @app.route('/get_level_params', methods=['GET'])
 def get_level_params():
-    client_id = session.get('client_id')
-    data[client_id]['params_event'].wait()
-    data[client_id]['params_event'].clear()
-    level_params = data[client_id]['level_params']
+    data['params_event'].wait()
+    data['params_event'].clear()
+    level_params = data['level_params']
     params = [int(i) for i in level_params]
-
     return json.dumps(params)
 
 @app.route('/load', methods=['POST'])
 def handle_load():
-    client_id = session.get('client_id')
-    if client_id not in data:
-        data[client_id] = {'stats': [],
-                           'level_stats': None,
-                           'satisfaction': 0,
-                           'level_params': [],
-                           'stats_event': threading.Event(),
-                           'params_event': threading.Event()}
-    play(client_id)
-    return jsonify('OK')
+    # Add default data.
+    data.update({'stats': [],
+            'level_stats': None,
+            'satisfaction': 0,
+            'level_params': [],
+            'stats_event': threading.Event(),
+            'params_event': threading.Event()
+            })
+    play()
+    return jsonify("OK")
 
 @app.route('/unload', methods=['POST'])
 def handle_unload():
-    client_id = session.get('client_id')
-    # Remove client data
-    if client_id in data:
-        del data[client_id]
+    # Remove data.
+    data.clear()
     return jsonify('OK')
 
 @app.route('/')

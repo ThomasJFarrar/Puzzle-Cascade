@@ -38,3 +38,8 @@ button {
 button:hover {
     border: 5px solid white;
   }
+
+#startBtn, #playAgainBtn {
+    margin: 100px auto;
+    font-size: 60px;
+}
