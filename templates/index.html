@@ -4,7 +4,7 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width-device-width, initial-scale=1.0">
-        <title>Candy Crush</title>
+        <title>Match-3</title>
         <link rel="stylesheet" href="static/candy.css">
         <script src="static/candy.js"></script>
     </head>
@@ -20,7 +20,10 @@
         </div>
         <div id="startScreen">
             <button id="startBtn" onclick="startLevel()">Start</button>
-            <button id="lazyBot" onclick="runLazyBot()">Lazy Bot</button>
+            <button id="lazyBot" onclick="runStupidBot()">Stupid Bot</button>
+            <button id="cleverBot" onclick="runCleverBot()">Clever Bot</button>
+            <button id="random" onclick="switchToRandom()">Switch to Random Mode</button>
+            <button id="adaptive" style="display: none;" onclick="switchToAdaptive()">Switch to Adaptive Mode</button>
         </div>
         <button id="nextLvlBtn" style="display: none;" onclick="nextLevel()">Next Level</button>
         <div id="gameOver" style="display: none;">

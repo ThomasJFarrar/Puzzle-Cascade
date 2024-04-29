@@ -7,6 +7,13 @@ var score = 0;
 var moveCounter = 0;
 var levelEnded = false;
 var botRunning = false;
+var candy1;
+var candy2;
+var candy3;
+var candy4;
+var candy5;
+var obstacleChance = 0;
+var bonusChance = 0;
 
 var levelParams;
 
@@ -15,6 +22,7 @@ var maxMoves;
 var shufflePenalty = 1;
 var maxCandies = 6;
 var targetScore;
+var adaptive = true;
 
 var currTile;
 var otherTile;
@@ -24,6 +32,9 @@ var firstMoveMade = false;
 var totalLevelTime;
 var start;
 var timesShuffled;
+var fives;
+var fours;
+var threes;
 
 var timeBetweenMoves = [];
 var startTimeMove;
@@ -41,6 +52,18 @@ window.onload = function() {
     xhr.send(JSON.stringify({}));
 }
 
+function switchToAdaptive() {
+    document.getElementById("adaptive").style.display = "none";
+    document.getElementById("random").style.display = "block";
+    adaptive = true;
+}
+
+function switchToRandom() {
+    document.getElementById("adaptive").style.display = "block";
+    document.getElementById("random").style.display = "none";
+    adaptive = false;
+}
+
 function fetchLevelParameters() {
     fetch('/get_level_params', {
         method: 'GET',
@@ -49,6 +72,8 @@ function fetchLevelParameters() {
     .then(data => {
         maxMoves = data[0];
         targetScore = data[1];
+        obstacleChance = data[2]
+        bonusChance = data[3]
         document.getElementById("target").innerText = targetScore;
         console.log(data)})
     .catch(error => console.error('Error:', error));
@@ -65,18 +90,26 @@ window.addEventListener('beforeunload', function (e) {
 
 // Generate a random candy from the candy list.
 function randomCandy() {
+    let randomNumber = Math.floor(Math.random() * bonusChance);
+    if (randomNumber === 0) {
+        return "Bonus"
+    }
+    randomNumber = Math.floor(Math.random() * obstacleChance);
+    if (randomNumber === 0) {
+        return "Obstacle"
+    }
     return candyList[Math.floor(Math.random() * maxCandies)];
 }
 
-function runLazyBot() {
+function runStupidBot() {
     botRunning = true;
     startLevel();
-    var lazyBot = setInterval(function() {
-        for (let r = 0; r < rows; r++) {
+    var stupidBot = setInterval(function() {
+        for (let r = rows - 1; r >= 0; r--) {
             for (let c = 0; c < columns; c++) {
                 // Stop if the level has ended.
                 if (levelEnded) {
-                    clearInterval(lazyBot);
+                    clearInterval(stupidBot);
                     return;
                 }
                 if (c > 0) { // Check left.
@@ -109,12 +142,101 @@ function runLazyBot() {
                 }
             }
         }
-    }, 500);
+        shuffle();
+        return;
+    }, 200);
+}
+
+function runCleverBot() {
+    botRunning = true;
+    startLevel();
+    var cleverBot = setInterval(function() {
+        for (let i = 0; i < 4; i++) {
+            for (let r = rows - 1; r >= 0; r--) {
+                for (let c = 0; c < columns; c++) {
+                    if (levelEnded) {
+                        clearInterval(cleverBot);
+                        return;
+                    }
+                    // Check left
+                    if (c > 0) {
+                        currTile = board[r][c]
+                        otherTile = board[r][c - 1]
+                        if (botCheckAndSwap(currTile, otherTile, i)) {
+                            dragEnd();
+                            return;
+                        }
+                    }
+                    // Check right
+                    if (c < columns - 1) {
+                        currTile = board[r][c]
+                        otherTile = board[r][c + 1]
+                        if (botCheckAndSwap(currTile, otherTile, i)) {
+                            dragEnd();
+                            return;
+                        }
+                    }
+                    // Check up
+                    if (r > 0) {
+                        currTile = board[r][c]
+                        otherTile = board[r - 1][c]
+                        if (botCheckAndSwap(currTile, otherTile, i)) {
+                            dragEnd();
+                            return;
+                        }
+                    }
+                    // Check down
+                    if (r < rows - 1) {
+                        currTile = board[r][c]
+                        otherTile = board[r + 1][c]
+                        if (botCheckAndSwap(currTile, otherTile, i)) {
+                            dragEnd();
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+        shuffle()
+        return;
+    }, 200);
+}
+
+function botCheckAndSwap(currTile, otherTile, iteration) {
+    const currImg = otherTile.src;
+    const otherImg = currTile.src;
+    currTile.src = otherImg;
+    otherTile.src = currImg;
+    let success = false;
+    if (iteration === 0 && currTile.src.includes("Bonus") || otherTile.src.includes("Bonus") && !(currTile.src.includes("Obstacle") || otherTile.src.includes("Obstacle"))) {
+        success = true;
+    }
+    else if (iteration === 1 && checkFive()) {
+        success = true;
+    } else if (iteration === 2 && checkFour()) {
+        success = true;
+    } else if (iteration === 3 && checkThree()) {
+        success = true;
+    }
+    currTile.src = currImg;
+    otherTile.src = otherImg;
+    if (success) {
+        return true;
+    }
+    return false;
 }
 
 // Initialize the game state.
 function startLevel() {
-    fetchLevelParameters();
+    if (adaptive) {
+        fetchLevelParameters();
+    } else {
+        maxMoves = Math.floor(Math.random() * (20 - 10) + 10);
+        targetScore = Math.floor(Math.random() * (800 - 200) + 200);
+        obstacleChance = Math.floor(Math.random() * (75 - 25) + 25);
+        bonusChance = Math.floor(Math.random() * (200 - 50) + 50);
+        document.getElementById("target").innerText = targetScore;
+    }
     levelEnded = false;
     statsSent = false;
     firstMoveMade = false;
@@ -125,11 +247,12 @@ function startLevel() {
     start = Date.now();
     scoreDifference = 0;
     totalLevelTime = 0;
+    fives = 0;
+    fours = 0;
+    threes = 0;
     setInterval(function(){
         crushCandy();
-        slideCandy();
-        generateCandy();
-    }, 100);
+    }, 50);
     // Hide play again button and update the level number.
     document.getElementById("levelElements").style.display = "block";
     document.getElementById("startScreen").style.display = "none"
@@ -178,7 +301,6 @@ function generateGrid() {
 function dragStart() {
     // Tile that was clicked on for dragging.
     currTile = this;
-
 }
 
 // Event handler for drag over.
@@ -203,9 +325,13 @@ function dragDrop() {
 
 // Event handler for drag end.
 function dragEnd() {
-    // Check if the dragged tiles are not blank and are adjacent.
+    // Check if the dragged tiles are not blank
     if (currTile.src.includes("blank") || otherTile.src.includes("blank")) {
         return false;; // If either tile is blank, exit the function since the move is not valid.
+    }
+    // Check if the dragged tiles are not obstacles.
+    if (currTile.src.includes("Obstacle") || otherTile.src.includes("Obstacle")) {
+        return false;; // If either tile is obstacles, exit the function since the move is not valid.
     }
 
     // Extract row and column indices of the current and other tiles.
@@ -225,22 +351,41 @@ function dragEnd() {
         const otherImg = otherTile.src;
         currTile.src = otherImg;
         otherTile.src = currImg;
-        const validMove = checkValid(); // Check if the move creates a valid combination.
+        const validMove = checkThree(); // Check if the move creates a valid combination.
         // Increment move counter if move is valid.
-        if (validMove && moveCounter < maxMoves) {
-            firstMoveMade = true;
-            moveCounter++;
-            let delta = Date.now() - startTimeMove;
-            timeBetweenMoves.push(Math.floor(delta / 1000));
-            startTimeMove = Date.now();
-            return true;
+        if (moveCounter < maxMoves) {
+            if (validMove) {
+                firstMoveMade = true;
+                moveCounter++;
+                let delta = Date.now() - startTimeMove;
+                timeBetweenMoves.push(Math.floor(delta / 1000));
+                startTimeMove = Date.now();
+                return true;
+            // Check if the dragged tiles are bonuses
+            } else if (currTile.src.includes("Bonus") || otherTile.src.includes("Bonus")){
+                firstMoveMade = true;
+                moveCounter++;
+                let delta = Date.now() - startTimeMove;
+                timeBetweenMoves.push(Math.floor(delta / 1000));
+                startTimeMove = Date.now();
+                currTile.src = "static/images/blank.png";
+                otherTile.src = "static/images/blank.png";
+                score += 100;
+                return true;
+            } else {
+                // If move is not valid, revert the swap.
+                let currImg = currTile.src;
+                let otherImg = otherTile.src;
+                currTile.src = otherImg;
+                otherTile.src = currImg;
+                return false;
+            }
         } else {
-            // If move is not valid, revert the swap.
+            // Revert the swap if ran out of moves.
             let currImg = currTile.src;
             let otherImg = otherTile.src;
             currTile.src = otherImg;
             otherTile.src = currImg;
-            return false;
         }
     }
     return false;
@@ -248,12 +393,32 @@ function dragEnd() {
 
 // Check for and eliminate candy combinations of three or more in a row or column.
 function crushCandy() {
-    crushFive();
-    crushFour();
-    crushThree();
-    // Update the displayed moves and score.
+    // Clear the combinations of tiles and add to the score.
+    if (checkFive()) {
+        candy1.src = candy2.src = candy3.src = candy4.src = candy5.src = "static/images/blank.png";
+        if (firstMoveMade) {
+            score += 50;
+            fives += 1;
+        }
+    }
+    if (checkFour()) {
+        candy1.src = candy2.src = candy3.src = candy4.src = "static/images/blank.png";
+        if (firstMoveMade) {
+            score += 40;
+            fours += 1;
+        }
+    }
+    if (checkThree()) {
+        candy1.src = candy2.src = candy3.src = "static/images/blank.png";
+        if (firstMoveMade) {
+            score += 30;
+            threes += 1;
+        }
+    }
     document.getElementById("moves").innerText = maxMoves - moveCounter;
     document.getElementById("score").innerText = score;
+    slideCandy();
+    generateCandy();
 }
 
 // Handle shuffling the candies on the board.
@@ -274,18 +439,19 @@ function gameOver() {
     // Display game over screen.
     document.getElementById("levelElements").style.display = "none";
     document.getElementById("gameOver").style.display = "block";
+    if (botRunning) {
+        playAgain()
+    }
 }
 
 function nextLevel() {
     levelNumber++;
     startLevel();
-    //setTimeout(startLevel(), 5000);
 }
 
 function playAgain() {
     levelNumber = 1;
     startLevel();
-    //setTimeout(startLevel(), 5000);
 }
 
 // Handle the end of the game.
@@ -323,10 +489,12 @@ function saveStats() {
         let avgTime = total / timeBetweenMoves.length;
 
         let jsonData = {
-            "totaltime": totalLevelTime,
             "avgmovetime": avgTime,
             "scorediff": scoreDifference,
-            "shuffles": timesShuffled
+            "shuffles": timesShuffled,
+            "fives": fives,
+            "fours": fours,
+            "threes": threes
         };
 
         fetch('/stats', {
@@ -343,17 +511,14 @@ function saveStats() {
     }
 }
 
-// Check for and eliminate candy combinations of three in a row or column.
-function crushThree() {
+// Check for candy combinations of three in a row or column.
+function checkThree() {
     // Check for combinations in rows.
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < columns - 2; c++) {
-            const [candy1, candy2, candy3] = [board[r][c], board[r][c+1], board[r][c+2]];
+            [candy1, candy2, candy3] = [board[r][c], board[r][c+1], board[r][c+2]];
             if (candy1.src === candy2.src && candy2.src === candy3.src && !candy1.src.includes("blank")) {
-                candy1.src = candy2.src = candy3.src = "static/images/blank.png";
-                if (firstMoveMade) {
-                    score += 30;
-                }
+                return true;
             }
         }
     }
@@ -361,28 +526,23 @@ function crushThree() {
     // Check for combinations in columns.
     for (let c = 0; c < columns; c++) {
         for (let r = 0; r < rows - 2; r++) {
-            const [candy1, candy2, candy3] = [board[r][c], board[r+1][c], board[r+2][c]];
+            [candy1, candy2, candy3] = [board[r][c], board[r+1][c], board[r+2][c]];
             if (candy1.src === candy2.src && candy2.src === candy3.src && !candy1.src.includes("blank")) {
-                candy1.src = candy2.src = candy3.src = "static/images/blank.png";
-                if (firstMoveMade) {
-                    score += 30;
-                }
+                return true;
             }
         }
     }
+    return false;
 }
 
-// Check for and eliminate candy combinations of four in a row or column.
-function crushFour() {
+// Check for candy combinations of four in a row or column.
+function checkFour() {
     // Check for combinations in rows.
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < columns - 3; c++) {
-            const [candy1, candy2, candy3, candy4] = [board[r][c], board[r][c+1], board[r][c+2], board[r][c+3]];
+            [candy1, candy2, candy3, candy4] = [board[r][c], board[r][c+1], board[r][c+2], board[r][c+3]];
             if (candy1.src === candy2.src && candy2.src === candy3.src && candy3.src === candy4.src && !candy1.src.includes("blank")) {
-                candy1.src = candy2.src = candy3.src = candy4.src = "static/images/blank.png";
-                if (firstMoveMade) {
-                    score += 40;
-                }
+                return true;
             }
         }
     }
@@ -390,28 +550,23 @@ function crushFour() {
     // Check for combinations in columns.
     for (let c = 0; c < columns; c++) {
         for (let r = 0; r < rows - 3; r++) {
-            const [candy1, candy2, candy3, candy4] = [board[r][c], board[r+1][c], board[r+2][c], board[r+3][c]];
+            [candy1, candy2, candy3, candy4] = [board[r][c], board[r+1][c], board[r+2][c], board[r+3][c]];
             if (candy1.src === candy2.src && candy2.src === candy3.src && candy3.src === candy4.src && !candy1.src.includes("blank")) {
-                candy1.src = candy2.src = candy3.src = candy4.src = "static/images/blank.png";
-                if (firstMoveMade) {
-                    score += 40;
-                }
+                return true;
             }
         }
     }
+    return false;
 }
 
-// Check for and eliminate candy combinations of five in a row or column.
-function crushFive() {
+// Check for candy combinations of five in a row or column.
+function checkFive() {
     // Check for combinations in rows.
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < columns - 4; c++) {
-            const [candy1, candy2, candy3, candy4, candy5] = [board[r][c], board[r][c+1], board[r][c+2], board[r][c+3], board[r][c+4]];
+            [candy1, candy2, candy3, candy4, candy5] = [board[r][c], board[r][c+1], board[r][c+2], board[r][c+3], board[r][c+4]];
             if (candy1.src === candy2.src && candy2.src === candy3.src && candy3.src === candy4.src && candy4.src === candy5.src && !candy1.src.includes("blank")) {
-                candy1.src = candy2.src = candy3.src = candy4.src = candy5.src = "static/images/blank.png";
-                if (firstMoveMade) {
-                    score += 50;
-                }
+                return true;
             }
         }
     }
@@ -419,39 +574,12 @@ function crushFive() {
     // Check for combinations in columns.
     for (let c = 0; c < columns; c++) {
         for (let r = 0; r < rows - 4; r++) {
-            const [candy1, candy2, candy3, candy4, candy5] = [board[r][c], board[r+1][c], board[r+2][c], board[r+3][c], board[r+4][c]];
+            [candy1, candy2, candy3, candy4, candy5] = [board[r][c], board[r+1][c], board[r+2][c], board[r+3][c], board[r+4][c]];
             if (candy1.src === candy2.src && candy2.src === candy3.src && candy3.src === candy4.src && candy4.src === candy5.src && !candy1.src.includes("blank")) {
-                candy1.src = candy2.src = candy3.src = candy4.src = candy5.src = "static/images/blank.png";
-                if (firstMoveMade) {
-                    score += 50;
-                }
-            }
-        }
-    }
-}
-
-// Function to check if there is a valid move on the board.
-function checkValid() {
-    // Check for valid moves in rows.
-    for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < columns - 2; c++) {
-            const [candy1, candy2, candy3] = [board[r][c], board[r][c+1], board[r][c+2]];
-            if (candy1.src === candy2.src && candy2.src === candy3.src && !candy1.src.includes("blank")) {
                 return true;
             }
         }
     }
-
-    // Check for valid moves in columns.
-    for (let c = 0; c < columns; c++) {
-        for (let r = 0; r < rows - 2; r++) {
-            const [candy1, candy2, candy3] = [board[r][c], board[r+1][c], board[r+2][c]];
-            if (candy1.src === candy2.src && candy2.src === candy3.src && !candy1.src.includes("blank")) {
-                return true;
-            }
-        }
-    }
-
     return false;
 }
 

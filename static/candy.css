@@ -1,5 +1,6 @@
 body {
-    background: url("images/background.jpg") no-repeat center center fixed;
+    /*background: url("images/background.jpg") no-repeat center center fixed;*/
+    background: cyan;
     background-size: cover;
     font-family: Arial, Helvetica, sans-serif;
     color: white;
