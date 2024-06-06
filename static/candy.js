@@ -15,6 +15,8 @@ var candy5;
 var obstacleChance = 0;
 var bonusChance = 0;
 
+var iterations = 100;
+
 var levelParams;
 
 var levelNumber = 1;
@@ -112,6 +114,10 @@ function runStupidBot() {
                     clearInterval(stupidBot);
                     return;
                 }
+                if (iterations == 0) {
+                    clearInterval(stupidBot);
+                    return;
+                }
                 if (c > 0) { // Check left.
                     currTile = board[r][c];
                     otherTile = board[r][c - 1];
@@ -155,6 +161,10 @@ function runCleverBot() {
             for (let r = rows - 1; r >= 0; r--) {
                 for (let c = 0; c < columns; c++) {
                     if (levelEnded) {
+                        clearInterval(cleverBot);
+                        return;
+                    }
+                    if (iterations == 0) {
                         clearInterval(cleverBot);
                         return;
                     }
@@ -456,6 +466,7 @@ function playAgain() {
 
 // Handle the end of the game.
 function endLevel() {
+    iterations--;
     levelEnded = true;
     // Calculate time spent in level.
     let delta = Date.now() - start;

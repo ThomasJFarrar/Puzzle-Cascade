@@ -2,7 +2,7 @@
 ## Introduction
 This program has been developed for the ECM3401 Individual Literature Review and Project. It consists of an interactive Match-3 style computer game which aims to adapt aspects within the levels towards the player's preferences and play style, improving their satisfaction.
 ## Prerequisites
-**Python 3.12.2** was used for the development of the system. To run the program, ensure you have the required libraries installed found in `requirements.txt`, or use the python virtual environment for it to work. You will need a compatible browser with JavaScript enabled to visit the web address and see the game, such as **Chrome Version 123.0.6312.123 (Official Build) (64-bit)** which was used during development.
+**Python 3.12.2** was used for the development of the system. To run the program, ensure you have the required libraries installed found in `requirements.txt`. You will need a compatible browser with JavaScript enabled to visit the web address and see the game, such as **Chrome Version 123.0.6312.123 (Official Build) (64-bit)** which was used during development.
 ## Getting Started
 To get started with the program, run `app.py` which will start the flask server, then visit the url http://127.0.0.1:5000 in your browser.
 ### Starting the Game
